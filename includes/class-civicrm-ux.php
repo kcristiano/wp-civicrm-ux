@@ -316,27 +316,51 @@ class Civicrm_Ux {
 		}
 	}
 
-	public function get_event_status_message($event) {
-		$now = new \DateTime();
-	
+	public function get_event_status_message($event)
+	{
+
+		// Get the WordPress site's configured timezone
+		// We assume CiviCRM's site timezone matches the WordPress timezone.
+		$wp_timezone = wp_timezone(); // Returns a DateTimeZone object
+
+		// Create $now using the WordPress timezone.
+		$now = new \DateTime('now', $wp_timezone);
+
+		// Helper function to safely parse the date string directly into the local timezone.
+		$getDateInLocalTime = function ($dateString) use ($wp_timezone) {
+			if (empty($dateString)) {
+				return null;
+			}
+			// Parse the ambiguous date string and explicitly assign the local timezone.
+			// Because this string is already in the local timezone.
+			return new \DateTime($dateString, $wp_timezone);
+		};
+
+		$registration_start_date = $getDateInLocalTime($event['registration_start_date']);
+		$registration_end_date = $getDateInLocalTime($event['registration_end_date']);
+
 		// Check if registration has not opened yet
-		if (!empty($event['registration_start_date']) && $now < new \DateTime($event['registration_start_date'])) {
+		// Compare $now (Local Time) < start_date (Local Time)
+		if ($registration_start_date && $now < $registration_start_date) {
+			// Use the original string for formatting
 			$formattedDate = \CRM_Utils_Date::customFormat($event['registration_start_date']);
 			return sprintf('Registration for this event opens on %s', $formattedDate);
 		}
-	
+
 		// Check if registration has already ended
-		if (!empty($event['registration_end_date']) && $now > new \DateTime($event['registration_end_date'])) {
+		// Compare $now (Local Time) > end_date (Local Time)
+		if ($registration_end_date && $now > $registration_end_date) {
+			// Use the original string for formatting
 			$formattedDate = \CRM_Utils_Date::customFormat($event['registration_end_date']);
 			return sprintf('Registration for this event ended on %s', $formattedDate);
 		}
-	
+
 		// Check if the event is full (and waitlist is not enabled)
 		$maxParticipants = !empty($event['max_participants']) ? (int) $event['max_participants'] : 0;
 		if ($maxParticipants > 0 && $event['participant_count'] >= $maxParticipants && empty($event['has_waitlist'])) {
 			return $event['event_full_text'] ?? 'This event is currently full.';
 		}
-	
+
 		// If none of the above, registration is open or not enabled
 		return '';
 	}
