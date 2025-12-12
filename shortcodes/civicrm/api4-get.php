@@ -161,6 +161,14 @@ class Civicrm_Ux_Shortcode_CiviCRM_Api4_Get extends Abstract_Civicrm_Ux_Shortcod
 
 			$results = civicrm_api4( $atts['entity'], 'get', $params );
 
+			// Output a no results message from a template part
+			if ( $results->count() < 1 ) {
+				// Buffer the output
+				ob_start();
+				civicrm_ux_load_template_part( 'shortcode', 'no-results' );
+				return ob_get_clean();
+			}
+
 			foreach ( $results as $result ) {
 				$output = preg_replace_callback( $output_regex, function ( $match ) use ( $result, $fields ) {
 					$output = $result[ $match['field'] ] ?? '';
@@ -221,7 +229,10 @@ class Civicrm_Ux_Shortcode_CiviCRM_Api4_Get extends Abstract_Civicrm_Ux_Shortcod
 			\Civi::log()
 			     ->error( $e->getTraceAsString() );
 
-			return '';
+			// Buffer the output
+			ob_start();
+			civicrm_ux_load_template_part( 'shortcode', 'no-results' );
+			return ob_get_clean();
 		}
 	}
 
